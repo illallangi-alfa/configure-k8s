@@ -18,3 +18,6 @@ dependencies:
   - src: "https://git@github.com/illallangi-alfa/configure-kubelet.git"
     scm: git
     version: master
+  - src: "https://git@github.com/illallangi-alfa/configure-selinux.git"
+    scm: git
+    version: master

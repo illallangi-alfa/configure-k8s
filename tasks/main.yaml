@@ -1,0 +1,75 @@
+---
+- name: "Initialise first master"
+  shell: >
+    kubeadm init 
+    --control-plane-endpoint "{{ k8s.hostname }}:6443"
+    --upload-certs
+    --pod-network-cidr="10.244.0.0/16"
+    &&
+    kubectl taint nodes {{ inventory_hostname }} node-role.kubernetes.io/master-
+  args:
+    creates: "/etc/kubernetes/manifests/kube-apiserver.yaml"
+  environment:
+    KUBECONFIG_SAVED: "/etc/kubernetes/admin.conf"
+  when:
+    - inventory_hostname in (hostvars | json_query(k8s_master_json_query))
+  tags:
+    - "k8s"
+
+- name: "Get join command from first master"
+  shell: >
+    kubeadm token create --print-join-command
+  when:
+    - inventory_hostname in (hostvars | json_query(k8s_master_json_query))
+    - (hostvars | json_query(k8s_masters_json_query) | count) > 0
+  changed_when: false
+  register: join_command
+  tags:
+    - "k8s"
+
+- name: "Get certificate key from first master"
+  shell: >
+    kubeadm init phase upload-certs --upload-certs | tail -n1
+  when:
+    - inventory_hostname in (hostvars | json_query(k8s_master_json_query))
+    - (hostvars | json_query(k8s_masters_json_query) | count) > 0
+  changed_when: false
+  register: certificate_key
+  tags:
+    - "k8s"
+
+- name: "Initialise subsequent masters"
+  shell: >
+    systemctl stop lobalancer@{{ k8s.ipv4 | ipaddr('address') }}.timer
+    &&
+    {{ hostvars[(hostvars | json_query(k8s_master_json_query))[0]]['join_command']['stdout'] }} --control-plane --certificate-key {{ hostvars[(hostvars | json_query(k8s_master_json_query))[0]]['certificate_key']['stdout'] }} 
+    &&
+    kubectl taint nodes {{ inventory_hostname }} node-role.kubernetes.io/master-
+    &&
+    systemctl start lobalancer@{{ k8s.ipv4 | ipaddr('address') }}.timer
+  args:
+    creates: "/etc/kubernetes/manifests/kube-apiserver.yaml"
+  environment:
+    KUBECONFIG_SAVED: "/etc/kubernetes/admin.conf"
+  when:
+    - inventory_hostname in (hostvars | json_query(k8s_masters_json_query))
+  tags:
+    - "k8s"
+
+- name: "Initialize workers"
+  fail:
+    msg: "Not implemented"
+  when:
+    - inventory_hostname in (hostvars | json_query(k8s_workers_json_query))
+  tags:
+    - "k8s"
+  delegate_to: "localhost"
+
+- name: "Initialize edges"
+  fail:
+    msg: "Not implemented"
+  when:
+    - inventory_hostname in (hostvars | json_query(k8s_edges_json_query))
+  tags:
+    - "k8s"
+  delegate_to: "localhost"

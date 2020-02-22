@@ -1,4 +1,18 @@
 ---
+- name: "Disable swap permanently"
+  replace:
+    path: "/etc/fstab"
+    regexp: '^([^#].*swap.*)$'
+    replace: '# \1'
+  notify: "reboot"
+  tags:
+    - "k8s"
+
+- name: "Flush Handlers"
+  meta: "flush_handlers"
+  tags:
+    - "k8s"
+  
 - name: "Initialise first master"
   shell: >
     kubeadm init 

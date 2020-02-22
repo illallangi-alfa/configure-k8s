@@ -9,9 +9,6 @@ dependencies:
   - src: "https://git@github.com/illallangi-alfa/configure-iptables-legacy.git"
     scm: git
     version: master
-  - src: "https://git@github.com/illallangi-alfa/configure-lobalancer.git"
-    scm: git
-    version: master
   - src: "https://git@github.com/illallangi-alfa/configure-kubeadm.git"
     scm: git
     version: master
@@ -19,6 +16,15 @@ dependencies:
     scm: git
     version: master
   - src: "https://git@github.com/illallangi-alfa/configure-kubelet.git"
+    scm: git
+    version: master
+  - src: "https://git@github.com/illallangi-alfa/configure-kubernetes-cni.git"
+    scm: git
+    version: master
+  - src: "https://git@github.com/illallangi-alfa/configure-lobalancer.git"
+    scm: git
+    version: master
+  - src: "https://git@github.com/illallangi-alfa/configure-python3-openshift.git"
     scm: git
     version: master
   - src: "https://git@github.com/illallangi-alfa/configure-selinux.git"

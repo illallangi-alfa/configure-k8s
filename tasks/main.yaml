@@ -1,9 +1,30 @@
 ---
-- name: "Disable swap permanently"
+- name: "Disable swap permanently (/etc/fstab)"
   replace:
     path: "/etc/fstab"
     regexp: '^([^#].*swap.*)$'
     replace: '# \1'
+  notify: "reboot"
+  tags:
+    - "k8s"
+
+- name: "Check if swap enabled (dphys-swapfile)"
+  shell: cat /proc/meminfo | grep SwapTotal | awk '{ print $2 }'
+  register: swap_enabled
+  changed_when: false
+  tags:
+    - "k8s"
+    
+- name: "Disable swap permanently (dphys-swapfile)"
+  shell: "{{ item }}"
+  with_items: 
+    - dphys-swapfile swapoff
+    - dphys-swapfile uninstall
+    - update-rc.d dphys-swapfile disable
+  when: 
+    - "swap_enabled.stdout != '0'"
+    - "(ansible_os_family | lower) == 'debian'"
+    - "(ansible_architecture | lower) in ['armv7l','armv6l']"
   notify: "reboot"
   tags:
     - "k8s"
@@ -14,7 +35,7 @@
     - "k8s"
   
 - name: "Initialise first master"
-  shell: >
+  shell: >-
     kubeadm init 
     --control-plane-endpoint "{{ k8s.hostname }}:6443"
     --upload-certs
@@ -22,7 +43,7 @@
     &&
     kubectl taint nodes {{ inventory_hostname }} node-role.kubernetes.io/master-
   args:
-    creates: "/etc/kubernetes/manifests/kube-apiserver.yaml"
+    creates: "/etc/kubernetes/kubelet.conf"
   environment:
     KUBECONFIG_SAVED: "/etc/kubernetes/admin.conf"
   when:
@@ -31,7 +52,7 @@
     - "k8s"
 
 - name: "Get join command from first master"
-  shell: >
+  shell: >-
     kubeadm token create --print-join-command
   when:
     - inventory_hostname in (hostvars | json_query(k8s_master_json_query))
@@ -42,7 +63,7 @@
     - "k8s"
 
 - name: "Get certificate key from first master"
-  shell: >
+  shell: >-
     kubeadm init phase upload-certs --upload-certs | tail -n1
   when:
     - inventory_hostname in (hostvars | json_query(k8s_master_json_query))
@@ -53,7 +74,7 @@
     - "k8s"
 
 - name: "Initialise subsequent masters"
-  shell: >
+  shell: >-
     systemctl stop lobalancer@{{ k8s.ipv4 | ipaddr('address') }}.timer
     &&
     {{ hostvars[(hostvars | json_query(k8s_master_json_query))[0]]['join_command']['stdout'] }} --control-plane --certificate-key {{ hostvars[(hostvars | json_query(k8s_master_json_query))[0]]['certificate_key']['stdout'] }} 
@@ -62,7 +83,7 @@
     &&
     systemctl start lobalancer@{{ k8s.ipv4 | ipaddr('address') }}.timer
   args:
-    creates: "/etc/kubernetes/manifests/kube-apiserver.yaml"
+    creates: "/etc/kubernetes/kubelet.conf"
   environment:
     KUBECONFIG_SAVED: "/etc/kubernetes/admin.conf"
   when:
@@ -80,12 +101,10 @@
   delegate_to: "localhost"
 
 - name: "Initialize edges"
-  shell: >
-    {{ hostvars[(hostvars | json_query(k8s_master_json_query))[0]]['join_command']['stdout'] }} --certificate-key {{ hostvars[(hostvars | json_query(k8s_master_json_query))[0]]['certificate_key']['stdout'] }} 
-    &&
-    kubectl taint nodes {{ inventory_hostname }} node-role.kubernetes.io/edge
+  shell: >-
+    "{{ hostvars[(hostvars | json_query(k8s_master_json_query))[0]]['join_command']['stdout'] }}"
   args:
-    creates: "/etc/kubernetes/manifests/kube-apiserver.yaml"
+    creates: "/etc/kubernetes/kubelet.conf"
   environment:
     KUBECONFIG_SAVED: "/etc/kubernetes/admin.conf"
   when:

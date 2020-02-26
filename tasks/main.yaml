@@ -80,10 +80,15 @@
   delegate_to: "localhost"
 
 - name: "Initialize edges"
-  fail:
-    msg: "Not implemented"
+  shell: >
+    {{ hostvars[(hostvars | json_query(k8s_master_json_query))[0]]['join_command']['stdout'] }} --certificate-key {{ hostvars[(hostvars | json_query(k8s_master_json_query))[0]]['certificate_key']['stdout'] }} 
+    &&
+    kubectl taint nodes {{ inventory_hostname }} node-role.kubernetes.io/edge
+  args:
+    creates: "/etc/kubernetes/manifests/kube-apiserver.yaml"
+  environment:
+    KUBECONFIG_SAVED: "/etc/kubernetes/admin.conf"
   when:
     - inventory_hostname in (hostvars | json_query(k8s_edges_json_query))
   tags:
     - "k8s"
-  delegate_to: "localhost"

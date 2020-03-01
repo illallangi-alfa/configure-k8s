@@ -24,7 +24,7 @@
   when: 
     - "swap_enabled.stdout != '0'"
     - "(ansible_os_family | lower) == 'debian'"
-    - "(ansible_architecture | lower) in ['armv7l','armv6l']"
+    - "(ansible_architecture | lower) in ['armv7l']"
   notify: "reboot"
   tags:
     - "k8s"
@@ -40,8 +40,6 @@
     --control-plane-endpoint "{{ k8s.hostname }}:6443"
     --upload-certs
     --pod-network-cidr="10.244.0.0/16"
-    &&
-    kubectl taint nodes {{ inventory_hostname }} node-role.kubernetes.io/master-
   args:
     creates: "/etc/kubernetes/kubelet.conf"
   environment:
@@ -75,17 +73,13 @@
 
 - name: "Initialise subsequent masters"
   shell: >-
-    systemctl stop lobalancer@{{ k8s.ipv4 | ipaddr('address') }}.timer
-    &&
-    {{ hostvars[(hostvars | json_query(k8s_master_json_query))[0]]['join_command']['stdout'] }} --control-plane --certificate-key {{ hostvars[(hostvars | json_query(k8s_master_json_query))[0]]['certificate_key']['stdout'] }} 
-    &&
-    kubectl taint nodes {{ inventory_hostname }} node-role.kubernetes.io/master-
-    &&
-    systemctl start lobalancer@{{ k8s.ipv4 | ipaddr('address') }}.timer
+    {{ item }}
+  with_items:
+    - "systemctl stop lobalancer@{{ k8s.ipv4 | ipaddr('address') }}.timer"
+    - "{{ hostvars[(hostvars | json_query(k8s_master_json_query))[0]]['join_command']['stdout'] }} --control-plane --certificate-key {{ hostvars[(hostvars | json_query(k8s_master_json_query))[0]]['certificate_key']['stdout'] }}"
+    - "systemctl start lobalancer@{{ k8s.ipv4 | ipaddr('address') }}.timer"
   args:
     creates: "/etc/kubernetes/kubelet.conf"
-  environment:
-    KUBECONFIG_SAVED: "/etc/kubernetes/admin.conf"
   when:
     - inventory_hostname in (hostvars | json_query(k8s_masters_json_query))
   tags:
@@ -102,11 +96,11 @@
 
 - name: "Initialize edges"
   shell: >-
-    "{{ hostvars[(hostvars | json_query(k8s_master_json_query))[0]]['join_command']['stdout'] }}"
+    {{ item }}
   args:
     creates: "/etc/kubernetes/kubelet.conf"
-  environment:
-    KUBECONFIG_SAVED: "/etc/kubernetes/admin.conf"
+  with_items:
+    - "{{ hostvars[(hostvars | json_query(k8s_master_json_query))[0]]['join_command']['stdout'] }}"
   when:
     - inventory_hostname in (hostvars | json_query(k8s_edges_json_query))
   tags:

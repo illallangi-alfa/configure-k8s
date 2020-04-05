@@ -1,12 +1,12 @@
 ---
-- name: "Disable swap permanently (/etc/fstab)"
-  replace:
-    path: "/etc/fstab"
-    regexp: '^([^#].*swap.*)$'
-    replace: '# \1'
-  notify: "reboot"
-  tags:
-    - "k8s"
+# - name: "Disable swap permanently (/etc/fstab)"
+#   replace:
+#     path: "/etc/fstab"
+#     regexp: '^([^#].*swap.*)$'
+#     replace: '# \1'
+#   notify: "reboot"
+#   tags:
+#     - "k8s"
 
 - name: "Check if swap enabled (dphys-swapfile)"
   shell: cat /proc/meminfo | grep SwapTotal | awk '{ print $2 }'

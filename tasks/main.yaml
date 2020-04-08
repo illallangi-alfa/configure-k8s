@@ -41,6 +41,7 @@
     --upload-certs
     --pod-network-cidr="10.244.0.0/16"
     --ignore-preflight-errors=Swap
+    --skip-phases=addon/kube-proxy
   args:
     creates: "/etc/kubernetes/kubelet.conf"
   environment:

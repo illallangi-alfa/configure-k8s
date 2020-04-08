@@ -40,6 +40,7 @@
     --control-plane-endpoint "{{ k8s.hostname }}:6443"
     --upload-certs
     --pod-network-cidr="10.244.0.0/16"
+    --ignore-preflight-errors=Swap
   args:
     creates: "/etc/kubernetes/kubelet.conf"
   environment:
@@ -76,7 +77,7 @@
     {{ item }}
   with_items:
     - "systemctl stop lobalancer@{{ k8s.ipv4 | ipaddr('address') }}.timer"
-    - "{{ hostvars[(hostvars | json_query(k8s_master_json_query))[0]]['join_command']['stdout'] }} --control-plane --certificate-key {{ hostvars[(hostvars | json_query(k8s_master_json_query))[0]]['certificate_key']['stdout'] }}"
+    - "{{ hostvars[(hostvars | json_query(k8s_master_json_query))[0]]['join_command']['stdout'] }} --control-plane --ignore-preflight-errors=Swap --certificate-key {{ hostvars[(hostvars | json_query(k8s_master_json_query))[0]]['certificate_key']['stdout'] }}"
     - "systemctl start lobalancer@{{ k8s.ipv4 | ipaddr('address') }}.timer"
   args:
     creates: "/etc/kubernetes/kubelet.conf"
@@ -86,13 +87,17 @@
     - "k8s"
 
 - name: "Initialize workers"
-  fail:
-    msg: "Not implemented"
+  shell: >-
+    {{ item }}
+  args:
+    creates: "/etc/kubernetes/kubelet.conf"
+  with_items:
+    - "{{ hostvars[(hostvars | json_query(k8s_master_json_query))[0]]['join_command']['stdout'] }} --ignore-preflight-errors=Swap"
   when:
     - inventory_hostname in (hostvars | json_query(k8s_workers_json_query))
   tags:
     - "k8s"
-  delegate_to: "localhost"
+
 
 - name: "Initialize edges"
   shell: >-
